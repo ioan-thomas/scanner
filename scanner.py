@@ -45,6 +45,9 @@ class PortScanner:
             open_ports = self.__scan_host(target_ip)
             # Log the open ports for the current host
             logger.info(f"Open ports for {host} ({target_ip}): {open_ports}\n")
+            # Close the output file if it was opened
+            if self.__output_file:
+                self.__handle_write.close()
 
     # Scan the open ports for the specified host
     def __scan_host(self, target_ip):
