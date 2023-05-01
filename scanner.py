@@ -7,8 +7,8 @@ from tqdm import tqdm              # for the progress bar
 from vulnerable_ports import TOP_VULN_PORTS
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)  # set the logging level to INFO
-logger = logging.getLogger(__name__)      # create a logger with the current module's name
+logging.basicConfig(level=logging.INFO)  # set the logging level to INFO so that only INFO and higher levels are logged
+logger = logging.getLogger(__name__)      # create a logger with the current module's name so that the log messages include the module name
 
 class PortScanner:
     def __init__(self, args, vuln_ports):
@@ -20,6 +20,12 @@ class PortScanner:
         self.__max_workers = args.threads
         self.__vuln_ports = vuln_ports
         self.__scan_vuln_ports = args.scan_vuln_ports
+        self.__verbose = args.verbose
+        self.__output_file = args.output
+
+        # Open the output file in append mode if an output file is specified
+        if self.__output_file:
+            self.__handle_write = open(self.__output_file, "a")
 
     def scan(self):
         # Loop through each host and scan its open ports
@@ -40,10 +46,11 @@ class PortScanner:
             # Log the open ports for the current host
             logger.info(f"Open ports for {host} ({target_ip}): {open_ports}\n")
 
+    # Scan the open ports for the specified host
     def __scan_host(self, target_ip):
         open_ports = []
         with ThreadPoolExecutor(max_workers=self.__max_workers) as executor:
-            # Determine which ports to scan
+            # Determine which ports to scan based on the user's input
             futures = {executor.submit(self.__scan_port, target_ip, port): 
                     port for port in (self.__vuln_ports 
                                         if self.__scan_vuln_ports 
@@ -62,7 +69,7 @@ class PortScanner:
                             open_ports.append(open_port)
                         progress.update()
             except KeyboardInterrupt:
-                # If the user presses Ctrl-C, stop the scan and log a warning message
+                # If the user presses `Ctrl + C`, stop the scan and log a warning message
                 logger.warning("Stopping scan... Please wait for threads to finish.")
                 executor._threads.clear()
             except Exception as e:
@@ -74,10 +81,23 @@ class PortScanner:
         # Connect to the specified port and return the port number if it's open
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(self.__timeout)
+            
             try:
                 result = sock.connect_ex((target_ip, port))
                 if result == 0:
+                    print(f"Port {port} is open") if self.__verbose else None
+                    if self.__output_file:
+                        self.write_to_file(f"Open:{target_ip}:{port}\n")
                     return port
+                elif result == 11:
+                    print(f"Port {port} is filtered") if self.__verbose else None
+                    if self.__output_file:
+                        self.write_to_file(f"Filtered:{target_ip}:{port}\n")
+                else:
+                    print(f"Port {port} is closed") if self.__verbose else None
+                    if self.__output_file:
+                        self.write_to_file(f"Closed:{target_ip}:{port}\n")
+
             except Exception as e:
                 # Log an error message if there's an exception during the port scan and continue
                 logger.exception(f"Error scanning port {port}: {e}")
@@ -95,6 +115,8 @@ class PortScannerArgs:
         self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=1)
         self.__parser.add_argument("-t", "--threads", help="The number of threads to use for the port scans (default: 1, max: 100)", type=int, default=1, choices=range(1, 101))
         self.__parser.add_argument("--scan-vuln-ports", help="Scan the top vulnerable ports (default: False)", action="store_true")
+        self.__parser.add_argument("-v", dest="verbose" , help="Show verbose output", action="store_true", default=False)
+        self.__parser.add_argument("-o", "--output-file", dest="output",help="The output file path to write results to (default: None)", default=None)
         
     def parse_args(self):
         # returning the parsed arguments
