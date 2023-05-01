@@ -1,14 +1,18 @@
-import socket
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import re
-import argparse
-import sys
-from tqdm import tqdm
-import signal
+# Import the required modules
+import logging                     # for logging
+import socket                      # for creating sockets and resolving hostnames
+from concurrent.futures import ThreadPoolExecutor, as_completed  # for concurrent execution of port scans
+import argparse                    # for parsing the command-line arguments
+from tqdm import tqdm              # for the progress bar
+import urllib.request              # for downloading the list of top 1000 vulnerable ports from Nmap
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)  # set the logging level to INFO
+logger = logging.getLogger(__name__)      # create a logger with the current module's name
 
 class PortScanner:
     def __init__(self, args):
+        # Initialize instance variables with the values from the args object
         self.__hosts = args.hosts
         self.__start_port = args.start_port
         self.__end_port = args.end_port
@@ -16,82 +20,72 @@ class PortScanner:
         self.__max_workers = args.threads
 
     def scan(self):
+        print(self.__vuln_ports)
+        # Loop through each host and scan its open ports
         for host in self.__hosts:
             try:
-                target_ip = socket.gethostbyname(host)
+                # Resolve the IP address for the current host
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(self.__timeout)
+                    target_ip = socket.gethostbyname(host)
             except socket.gaierror as e:
-                print(f"Error resolving hostname {host}: {e}")
+                # Log an error message if the hostname can't be resolved and continue to the next host
+                logger.error(f"Error resolving hostname {host}: {e}")
                 continue
-            print(f"Scanning {host} ({target_ip})")
+            # Log a message indicating that scanning has started for the current host
+            logger.info(f"Scanning {host} ({target_ip})")
+            # Scan the open ports for the current host
             open_ports = self.__scan_host(target_ip)
-            print(f"Open ports for {host} ({target_ip}): {open_ports}\n")
+            # Log the open ports for the current host
+            logger.info(f"Open ports for {host} ({target_ip}): {open_ports}\n")
 
     def __scan_host(self, target_ip):
         open_ports = []
         with ThreadPoolExecutor(max_workers=self.__max_workers) as executor:
             futures = {executor.submit(self.__scan_port, target_ip, port): port for port in range(self.__start_port, self.__end_port + 1)}
             try:
-                for future in tqdm(as_completed(futures), total=len(futures), desc="Scanning ports", file=sys.stdout, ncols=100, unit="port"):
-                    open_port = future.result()
-                    if open_port is not None:
-                        open_ports.append(open_port)
+                with tqdm(total=len(futures), desc=f"Scanning {target_ip}", ncols=100, unit="port") as progress:
+                    for future in as_completed(futures):
+                        open_port = future.result()
+                        if open_port is not None:
+                            open_ports.append(open_port)
+                        progress.update()
             except KeyboardInterrupt:
-                print("Stopping scan...")
-                print("Waiting for running threads to finish...")
+                logger.warning("Stopping scan...")
                 executor._threads.clear()
-                sys.exit() 
             except Exception as e:
-                port = futures[future]
-                raise RuntimeError(f"Error scanning port {port}: {e}")
+                logger.exception(f"Error: {e}")
         return open_ports
 
     def __scan_port(self, target_ip, port):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect to the specified port and return the port number if it's open
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(self.__timeout)
-            result = sock.connect_ex((target_ip, port))
+            try:
+                result = sock.connect_ex((target_ip, port))
+                if result == 0:
+                    return port
+            except Exception as e:
+                # Log an error message if there's an exception during the port scan and continue
+                logger.exception(f"Error scanning port {port}: {e}")
 
-            if result == 0:
-                return port
-        except Exception as e:
-            print(f"Error scanning port {port}: {e}")
-        finally:
-            if sock is not None:
-                sock.close()
 class PortScannerArgs:
+    # Parse the command-line arguments
     def __init__(self):
-        self.parser = argparse.ArgumentParser(description="Port scanner")
-        self.parser.add_argument("hosts", type=self.valid_hostname, nargs='+', help="Hosts to scan (space-separated)")
-        self.parser.add_argument("start_port", type=self.valid_port, help="The Start port [1-65535]", metavar="Start_Port[1-65535]")
-        self.parser.add_argument("end_port", type=self.valid_port, help="The End Port [1-65535]", metavar="End_Port[1-65535]")
-        self.parser.add_argument("--timeout", help="Timeout (seconds)", type=int, default=1)
-        self.parser.add_argument("-t", "--threads", help="The number of threads to use for the port scans (default: 1, max: 100)", type=self.valid_threads, default=1)
-
+        self.__parser = argparse.ArgumentParser(description="Port scanner")
+        self.__parser.add_argument("hosts", type=str, nargs='+', help="Hosts to scan (space-separated)")
+        self.__parser.add_argument("start_port", type=int, help="The Start port [1-65535]", metavar="Start_Port[1-65535]", choices=range(1, 65536))
+        self.__parser.add_argument("end_port", type=int, help="The End Port [1-65535]", metavar="End_Port[1-65535]", choices=range(1, 65536))
+        self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=1)
+        self.__parser.add_argument("-t", "--threads", help="The number of threads to use for the port scans (default: 1, max: 100)", type=int, default=1, choices=range(1, 101))
+        
     def parse_args(self):
-        return self.parser.parse_args()
-
-    def valid_port(self, value):
-        port = int(value)
-        if port < 1 or port > 65535:
-            raise argparse.ArgumentTypeError(f"Invalid port number: {value}")
-        return port
-
-    def valid_threads(self, value):
-        num_of_threads = int(value)
-        if num_of_threads < 1 or num_of_threads > 100:
-            raise argparse.ArgumentTypeError(f"Invalid number of threads: {value}. Please choose a value between 1-100")
-        return num_of_threads
-
-    def valid_hostname(self, hostname):
-        pattern = r"^(?=.{1,255}$)[0-9a-zA-Z]([-\w]*[0-9a-zA-Z])*(\.[0-9a-zA-Z]([-\w]*[0-9a-zA-Z])*)+$"
-        match = re.fullmatch(pattern, hostname)
-        if match is None:
-            raise argparse.ArgumentTypeError(f"Invalid hostname: {hostname}")
-        return hostname
-
+        # returning the parsed arguments
+        return self.__parser.parse_args()
+    
+# runs the program if it's executed directly i.e. in the main module
 if __name__ == "__main__":
-    arg_parser = PortScannerArgs()
-    args = arg_parser.parse_args()
-
+    # Create a PortScanner object and scan the ports
+    args = PortScannerArgs().parse_args()
     scanner = PortScanner(args)
     scanner.scan()
