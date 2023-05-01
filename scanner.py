@@ -116,7 +116,7 @@ class PortScannerArgs:
 
         # create a mutually exclusive group for the start and end ports - only one of them can be specified
         ports_group = self.__parser.add_mutually_exclusive_group(required=True)
-        ports_group.add_argument("-p", "--port-range",type=range, help="The Port Range [1-65535]", metavar="Start_Port-End_Port", choices=range(1, 65536))
+        ports_group.add_argument("-p", "--port-range",type=argparse.Range(1, 65535), help="The Port Range [1-65535]", metavar="Start_Port-End_Port", choices=range(1, 65536))
         ports_group.add_argument("--scan-vuln-ports", help="Scan the top vulnerable ports (default: True)", action="store_true", default=True)
 
         self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=3)
