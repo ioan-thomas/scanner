@@ -88,16 +88,16 @@ class PortScanner:
             try:
                 result = sock.connect_ex((target_ip, port))
                 if result == 0:
-                    print(f"Port {port} is open") if self.__verbose else None
+                    logger.info(f"Port {port} is open") if self.__verbose else None
                     if self.__output_file:
                         self.__write_to_file(f"Open:{target_ip}:{port}\n")
                     return port
                 elif result == 11:
-                    print(f"Port {port} is filtered") if self.__verbose else None
+                    logger.info(f"Port {port} is filtered") if self.__verbose else None
                     if self.__output_file:
                         self.__write_to_file(f"Filtered:{target_ip}:{port}\n")
                 else:
-                    print(f"Port {port} is closed") if self.__verbose else None
+                    logger.info(f"Port {port} is closed") if self.__verbose else None
                     if self.__output_file:
                         self.__write_to_file(f"Closed:{target_ip}:{port}\n")
 
