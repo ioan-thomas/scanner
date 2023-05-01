@@ -82,6 +82,9 @@ class PortScanner:
                 # Log an error message if there's an exception during the port scan and continue
                 logger.exception(f"Error scanning port {port}: {e}")
 
+    def write_to_file(self, data):
+        # Write the data to the output file
+        self.__handle_write.write(data)
 class PortScannerArgs:
     # Parse the command-line arguments
     def __init__(self):
