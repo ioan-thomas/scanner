@@ -4,7 +4,6 @@ import socket                      # for creating sockets and resolving hostname
 from concurrent.futures import ThreadPoolExecutor, as_completed  # for concurrent execution of port scans
 import argparse                    # for parsing the command-line arguments
 from tqdm import tqdm              # for the progress bar
-import urllib.request              # for downloading the list of top 1000 vulnerable ports from Nmap
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # set the logging level to INFO
