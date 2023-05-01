@@ -113,17 +113,30 @@ class PortScannerArgs:
     def __init__(self):
         self.__parser = argparse.ArgumentParser(description="Port scanner")
         self.__parser.add_argument("hosts", type=str, nargs='+', help="Hosts to scan (space-separated)")
-        self.__parser.add_argument("start_port", type=int, help="The Start port [1-65535]", metavar="Start_Port[1-65535]", choices=range(1, 65536))
-        self.__parser.add_argument("end_port", type=int, help="The End Port [1-65535]", metavar="End_Port[1-65535]", choices=range(1, 65536))
-        self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=1)
-        self.__parser.add_argument("-t", "--threads", help="The number of threads to use for the port scans (default: 1, max: 100)", type=int, default=1, choices=range(1, 101))
-        self.__parser.add_argument("--scan-vuln-ports", help="Scan the top vulnerable ports (default: False)", action="store_true")
+
+        # create a mutually exclusive group for the start and end ports - only one of them can be specified
+        ports_group = self.__parser.add_mutually_exclusive_group(required=True)
+        ports_group.add_argument("-p", "--port-range",type=range, help="The Port Range [1-65535]", metavar="Start_Port-End_Port", choices=range(1, 65536))
+        ports_group.add_argument("--scan-vuln-ports", help="Scan the top vulnerable ports (default: True)", action="store_true", default=True)
+
+        self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=3)
+        self.__parser.add_argument("-t", "--threads", help="The number of threads to use for the port scans (default: 1, max: 100)", type=int, default=100, choices=range(1, 101))
         self.__parser.add_argument("-v", dest="verbose" , help="Show verbose output", action="store_true", default=False)
         self.__parser.add_argument("-o", "--output-file", dest="output",help="The output file path to write results to (default: None)", default=None)
         
     def parse_args(self):
-        # returning the parsed arguments
-        return self.__parser.parse_args()
+        # parsing the arguments
+        args = self.__parser.parse_args()
+
+
+        if args.port_range:
+            start_port, end_port = map(int, args.port_range.split('-'))
+            args.start_port = start_port
+            args.end_port = end_port
+        else:
+            args.start_port = min(TOP_VULN_PORTS)
+            args.end_port = max(TOP_VULN_PORTS)
+        return args
     
 # runs the program if it's executed directly i.e. in the main module
 if __name__ == "__main__":
