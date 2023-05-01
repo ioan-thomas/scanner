@@ -1,10 +1,10 @@
 # Import the required modules
-import logging                     # for logging
-import socket                      # for creating sockets and resolving hostnames
-from concurrent.futures import ThreadPoolExecutor, as_completed  # for concurrent execution of port scans
+import logging                     # for logging messages to the console and/or a file
+import socket                      # for creating sockets and resolving hostnames to IP addresses
+from concurrent.futures import ThreadPoolExecutor, as_completed  # for concurrent execution of port scans i.e. multithreading
 import argparse                    # for parsing the command-line arguments
 from tqdm import tqdm              # for the progress bar
-from vulnerable_ports import TOP_VULN_PORTS
+from vulnerable_ports import TOP_VULN_PORTS # for the list of top vulnerable ports
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # set the logging level to INFO so that only INFO and higher levels are logged
@@ -90,22 +90,22 @@ class PortScanner:
                 if result == 0:
                     print(f"Port {port} is open") if self.__verbose else None
                     if self.__output_file:
-                        self.write_to_file(f"Open:{target_ip}:{port}\n")
+                        self.__write_to_file(f"Open:{target_ip}:{port}\n")
                     return port
                 elif result == 11:
                     print(f"Port {port} is filtered") if self.__verbose else None
                     if self.__output_file:
-                        self.write_to_file(f"Filtered:{target_ip}:{port}\n")
+                        self.__write_to_file(f"Filtered:{target_ip}:{port}\n")
                 else:
                     print(f"Port {port} is closed") if self.__verbose else None
                     if self.__output_file:
-                        self.write_to_file(f"Closed:{target_ip}:{port}\n")
+                        self.__write_to_file(f"Closed:{target_ip}:{port}\n")
 
             except Exception as e:
                 # Log an error message if there's an exception during the port scan and continue
                 logger.exception(f"Error scanning port {port}: {e}")
 
-    def write_to_file(self, data):
+    def __write_to_file(self, data):
         # Write the data to the output file
         self.__handle_write.write(data)
 class PortScannerArgs:
