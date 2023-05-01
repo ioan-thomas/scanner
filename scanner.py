@@ -99,7 +99,9 @@ class PortScannerArgs:
     
 # runs the program if it's executed directly i.e. in the main module
 if __name__ == "__main__":
-    # Create a PortScanner object and scan the ports
+    # Create a PortScannerArgs object and parse the command-line arguments
     args = PortScannerArgs().parse_args()
+    # Create a PortScanner object
     scanner = PortScanner(args, TOP_VULN_PORTS)
+    # Scan the hosts
     scanner.scan()
