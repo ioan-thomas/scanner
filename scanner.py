@@ -171,5 +171,5 @@ if __name__ == "__main__":
     args = PortScannerArgs().parse_args()
     # Create a PortScanner object
     scanner = PortScanner(args, TOP_VULN_PORTS)
-    # Scan the hosts
+    # Scan the hosts using the created PortScanner object
     scanner.scan()
