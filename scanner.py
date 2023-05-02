@@ -18,7 +18,7 @@ class PortScanner:
         self.__start_port = args.start_port
         self.__end_port = args.end_port
         self.__timeout = args.timeout
-        self.__max_workers = args.threads
+        self.__max_workers = args.threads if args.threads <= 100 else 100
         self.__vuln_ports = vuln_ports
         self.__scan_vuln_ports = args.scan_vuln_ports
         self.__verbose = args.verbose
@@ -122,7 +122,7 @@ class PortScannerArgs:
 
         # create a mutually exclusive group for the start and end ports - only one of them can be specified
         ports_group = self.__parser.add_mutually_exclusive_group(required=True)
-        ports_group.add_argument("-p", "--port-range",type=str, help="The Port Range [1-65535]", metavar="Start_Port-End_Port")
+        ports_group.add_argument("-p", "--port-range",type=int, help="The Port Range [1-65535]", metavar="Start_Port-End_Port")
         ports_group.add_argument("--scan-vuln-ports", help="Scan the top vulnerable ports (default: False)", action="store_true", default=False)
 
         self.__parser.add_argument("--timeout", help="Timeout (seconds) for DNS and connecting to ports", type=int, default=3)
